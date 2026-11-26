@@ -1,20 +1,16 @@
-mod app;
-mod diagnosis;
-mod parser;
-mod cli;
+use std::process::ExitCode;
 
-use std::env;
+use clap::Parser as _;
 
-fn main() -> anyhow::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: data_guard <parquet_file>");
-        return Ok(());
+use data_guard::cli::Cli;
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+    match cli.run() {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("错误: {err:#}");
+            ExitCode::from(2)
+        }
     }
-    
-    let file_path = std::path::PathBuf::from(&args[1]);
-    cli::run_cli(file_path)?;
-    
-    Ok(())
 }
-
