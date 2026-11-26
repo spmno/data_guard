@@ -118,7 +118,7 @@ mod tests {
 
     fn fixture(name: &str) -> Option<PathBuf> {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
-        path.exists().then(|| path)
+        path.exists().then_some(path)
     }
 
     #[test]

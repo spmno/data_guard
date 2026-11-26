@@ -6,9 +6,8 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 
-use crate::app::{DiagnosisReport, HealthScore};
-use crate::diagnosis::DiagnosisEngine;
-use crate::parser::ParquetReader;
+use crate::app::{DiagnosisReport, HealthScore, human_size};
+use crate::diagnosis::diagnose_file;
 
 /// Parquet 数据质量诊断工具：扫描列级空值率 / 重复率 / 文本健康度，输出修复建议
 #[derive(Parser, Debug)]
@@ -37,15 +36,7 @@ impl Cli {
     ///
     /// 返回进程退出码：0 健康、1 存在危险列、2 由调用方在 `Err` 时给出。
     pub fn run(&self) -> Result<ExitCode> {
-        let reader = ParquetReader::open(&self.file)?;
-        let file_info = reader.file_info();
-        let mut engine = DiagnosisEngine::new(reader.schema());
-
-        for batch in reader.batch_iter(self.limit)? {
-            engine.process_batch(&batch?)?;
-        }
-
-        let report = engine.finish(file_info);
+        let report = diagnose_file(&self.file, self.limit)?;
 
         if self.json {
             let json = serde_json::to_string_pretty(&report)?;
@@ -130,21 +121,6 @@ fn health_label(score: HealthScore) -> &'static str {
         HealthScore::Good => "良好",
         HealthScore::Warning => "警告",
         HealthScore::Danger => "危险",
-    }
-}
-
-fn human_size(bytes: u64) -> String {
-    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
-    let mut size = bytes as f64;
-    let mut unit = 0;
-    while size >= 1024.0 && unit < UNITS.len() - 1 {
-        size /= 1024.0;
-        unit += 1;
-    }
-    if unit == 0 {
-        format!("{bytes} B")
-    } else {
-        format!("{size:.1} {}", UNITS[unit])
     }
 }
 

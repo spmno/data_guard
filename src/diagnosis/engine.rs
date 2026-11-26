@@ -111,7 +111,6 @@ struct ColumnAccumulator {
     is_text: bool,
     total_rows: usize,
     null_count: usize,
-    non_null_count: usize,
     /// 非空值的去重集合。注意：超大文件的高基数列会占用较多内存，
     /// 后续可替换为固定内存的哈希草图（见 README 路线图）。
     unique_values: HashSet<String>,
@@ -130,7 +129,6 @@ impl ColumnAccumulator {
             data_type,
             total_rows: 0,
             null_count: 0,
-            non_null_count: 0,
             unique_values: HashSet::new(),
             duplicate_count: 0,
             text_total_len: 0,
@@ -161,7 +159,8 @@ impl ColumnAccumulator {
             }
             if self.is_text {
                 self.text_rows += 1;
-                self.text_total_len += value.len();
+                // 字符数而非字节数：Utf8 的多字节字符（如中文）按字符统计
+                self.text_total_len += value.chars().count();
                 if !self.has_html && looks_like_html(&value) {
                     self.has_html = true;
                 }
@@ -171,8 +170,11 @@ impl ColumnAccumulator {
     }
 
     fn finish(self) -> ColumnReport {
+        // 非空数由 total_rows - null_count 推导。曾有版本用独立字段累加但
+        // 忘了写入，恒为 0，连带重复率的分母为 0（重复率恒 0.0）。
+        let non_null_count = self.total_rows - self.null_count;
         let null_rate = rate(self.null_count, self.total_rows);
-        let duplicate_rate = rate(self.duplicate_count, self.non_null_count);
+        let duplicate_rate = rate(self.duplicate_count, non_null_count);
         let unique_count = self.unique_values.len();
         let health_status = determine_health_status(null_rate, duplicate_rate);
         let text_stats = if self.is_text {
@@ -187,7 +189,7 @@ impl ColumnAccumulator {
             null_rate,
             duplicate_rate,
             unique_count,
-            self.non_null_count,
+            non_null_count,
             self.has_html,
         );
 
@@ -197,7 +199,7 @@ impl ColumnAccumulator {
             null_rate,
             duplicate_rate,
             unique_count,
-            non_null_count: self.non_null_count,
+            non_null_count,
             health_status,
             suggestions,
             text_stats,
@@ -314,7 +316,7 @@ mod tests {
 
     fn run(batches: &[RecordBatch]) -> DiagnosisReport {
         assert!(!batches.is_empty());
-        let mut engine = DiagnosisEngine::new(batches[0].schema());
+        let mut engine = DiagnosisEngine::new(&batches[0].schema());
         for batch in batches {
             engine.process_batch(batch).expect("处理批次失败");
         }
@@ -388,8 +390,8 @@ mod tests {
         let col = first_column(&report);
         let text = col.text_stats.as_ref().expect("文本列应有 text_stats");
         assert!(text.has_html);
-        // "<b>bold</b>" 11 字符 + "plain text" 11 字符
-        assert!((text.avg_length - 11.0).abs() < 1e-9);
+        // "<b>bold</b>" 11 字符 + "plain text" 10 字符 → 平均 10.5
+        assert!((text.avg_length - 10.5).abs() < 1e-9);
         assert!(col.suggestions.iter().any(|s| s.contains("HTML")));
     }
 

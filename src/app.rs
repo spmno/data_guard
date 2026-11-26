@@ -14,7 +14,7 @@ pub struct AppState {
 }
 
 /// Parquet 文件的基础信息。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FileInfo {
     pub path: PathBuf,
     pub row_count: i64,
@@ -23,7 +23,7 @@ pub struct FileInfo {
 }
 
 /// 整份文件的诊断报告。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DiagnosisReport {
     /// 总体评级：任一列 Danger 则 Danger，否则任一列 Warning 则 Warning
     pub overall_score: HealthScore,
@@ -38,7 +38,7 @@ pub struct DiagnosisReport {
 }
 
 /// 单列的诊断报告。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ColumnReport {
     pub name: String,
     /// Arrow 数据类型（Display 格式，如 `Utf8`、`Int64`）
@@ -58,7 +58,7 @@ pub struct ColumnReport {
 }
 
 /// 文本列统计。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TextStats {
     /// 非空文本的平均长度（字符数）
     pub avg_length: f64,
@@ -67,7 +67,7 @@ pub struct TextStats {
 }
 
 /// 健康评级。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum HealthScore {
     Good,
     Warning,
@@ -75,8 +75,24 @@ pub enum HealthScore {
 }
 
 /// 单列的健康状态（空值维度 + 重复维度）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct HealthStatus {
     pub null_status: HealthScore,
     pub duplicate_status: HealthScore,
+}
+
+/// 人类可读的文件大小（如 `1.5 MB`），CLI 与 GUI 共用。
+pub fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit = 0;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{size:.1} {}", UNITS[unit])
+    }
 }

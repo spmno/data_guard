@@ -12,7 +12,7 @@ use data_guard::parser::ParquetReader;
 
 fn fixture(name: &str) -> Option<PathBuf> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
-    path.exists().then(|| path)
+    path.exists().then_some(path)
 }
 
 fn diagnose(path: &std::path::Path, limit: Option<usize>) -> data_guard::app::DiagnosisReport {
