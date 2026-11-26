@@ -1,0 +1,8 @@
+{
+  "name": "data_guard",
+  "id": "com.spmno.data_guard",
+  "appearance": "system",
+  "rust": ".",
+  "root": "App",
+  "theme": "theme.json"
+}

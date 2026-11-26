@@ -1,0 +1,13 @@
+{
+  "cssVars": {
+    "theme": {},
+    "light": {
+      "good": "#16a34a",
+      "warn": "#d97706"
+    },
+    "dark": {
+      "good": "#4ade80",
+      "warn": "#facc15"
+    }
+  }
+}
